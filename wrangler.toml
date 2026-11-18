@@ -1,4 +1,4 @@
-name = "study-showdown-new"
+name = "study-showdown"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat", "assets_navigation_has_no_effect"]
 main = "worker.ts"
@@ -27,7 +27,7 @@ run_worker_first = ["/api/*", "/ws/*", "/internal/*", "/v1/*", "/_deepspace/*", 
 # subdomain label the next deploy claims; this id never changes — data,
 # secrets, and collaborators all key to it. Renames are safe.
 [vars]
-DEEPSPACE_APP_ID = "__APP_ID__"
+DEEPSPACE_APP_ID = "app_01M7PMM5WQYYTW7N2VPNEVXX2C"
 APP_NAME = "study-showdown-new"
 # Exact comma-separated native callback URIs. Set this before deploying an
 # Expo client, for example: "myapp://auth/callback".
