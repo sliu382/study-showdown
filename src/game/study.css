@@ -170,3 +170,20 @@ button.study-tile:not(:disabled):hover { background: #3860e2; }
 @media (max-width: 550px) {
   .study-account-name { display: none; }
 }
+
+.study-round-setup { max-width: 34rem; gap: 1rem; }
+.study-round-setup h2 { font-size: 1.25rem; font-weight: 750; overflow-wrap: anywhere; }
+.study-round-setup > button { align-self: flex-start; }
+.study-mode-picker { display: grid; gap: .4rem; }
+.study-mode-picker label { display: flex; align-items: center; gap: .6rem; margin: 0; }
+.study-mode-picker input { accent-color: #ffcf66; }
+.study-setup-names { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.study-scoreboard { margin-bottom: 1rem; }
+.study-turn, .study-review .study-winner { color: #ffcf66; font-weight: 750; overflow-wrap: anywhere; }
+.study-scoreboard ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .5rem; margin-top: .55rem; }
+.study-scoreboard li { display: flex; justify-content: space-between; gap: .4rem .75rem; flex-wrap: wrap; padding: .65rem .8rem; border: 1px solid #334569; border-radius: .65rem; background: #111d38; overflow-wrap: anywhere; }
+.study-scoreboard li[aria-current="true"] { border-color: #ffcf66; color: #ffcf66; }
+.study-scoreboard strong { white-space: nowrap; }
+.study-rankings h3, .study-player-review summary { overflow-wrap: anywhere; }
+.study-player-review { padding-block: .75rem; border-bottom: 1px solid #334569; }
+.study-player-review summary { color: #ffcf66; cursor: pointer; }
