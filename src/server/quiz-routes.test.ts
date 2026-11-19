@@ -20,7 +20,7 @@ function setup(mockOutput: unknown = {
   categories: ['Stars', 'Moons', 'Planets'].map((title) => ({
     title,
     questions: POINT_VALUES.map((points) => ({
-      points, prompt: `${title} clue for ${points}`, answer: 'Test answer', explanation: 'Test explanation',
+      points, prompt: `${title} clue for ${points}`, answer: 'Test answer', acceptedAnswers: ['  Fixture answer  '], explanation: 'Test explanation',
     })),
   })),
 }, providerStatus = 200) {
@@ -65,6 +65,10 @@ describe('quiz endpoint with mocked auth and DeepSpace proxy', () => {
     expect([...room.collections.get(GAMES)!.values()]).toMatchObject([
       { createdBy: 'test-student', data: { topic: 'Astronomy', learningLevel: 'general' } },
     ])
+    const [stored] = [...room.collections.get(GAMES)!.values()]
+    expect(stored.data.categories).toEqual(expect.arrayContaining([expect.objectContaining({
+      questions: expect.arrayContaining([expect.objectContaining({ acceptedAnswers: ['Fixture answer'] })]),
+    })]))
     expect(mockProvider).toHaveBeenCalledOnce()
     const [url, options] = mockProvider.mock.calls[0]
     expect(url).toContain('/api/proxy/openai/v1/chat/completions')
