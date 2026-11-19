@@ -1,50 +1,45 @@
-/**
- * Landing page — a STATIC page.
- *
- * It lives at the top level of src/pages/ (not under (app)/), so it renders
- * with no DeepSpace providers: no auth session fetch, no records WebSocket.
- * That makes it cheap to serve and safe for logged-out / crawler traffic.
- *
- * Need live data or auth here? Move this file to src/pages/(app)/index.tsx
- * and it becomes a dynamic page. Conversely, any page you want to keep static
- * (marketing, docs, legal) belongs at this top level.
- *
- * Top-level pages are also prerendered to static HTML at build
- * (prerender.ts, via vite.config.ts) so crawlers read real content.
- * Keep them renderable without a browser: no window/document during render,
- * prose in HTML text, reveal animations in CSS keyframes rather than JS-driven
- * initial states. `<Seo>` comes first and reads src/seo.ts.
- */
-
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Seo } from '../components/Seo'
-import { APP_NAME } from '../constants'
+import { GameBoard } from '../game/GameBoard'
+import { QuizForm } from '../game/QuizForm'
+import { sampleGame } from '../game/sample'
+import { StudyHeader } from '../game/StudyHeader'
 import { seo } from '../seo'
 
+const sampleQuestionCount = sampleGame.categories.reduce((total, category) => total + category.questions.length, 0)
+
 export default function Landing() {
+  const openSignIn = useRef<() => void>(null)
   return (
-    <>
+    <div className="study-shell study-landing-shell" data-testid="static-landing">
       <Seo {...seo} path="/" />
-      <div
-        data-testid="static-landing"
-        className="flex min-h-screen flex-col items-center justify-center px-6 text-center"
-      >
-        <p className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">{APP_NAME}</p>
-        <h1 className="mb-4 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          A DeepSpace app with a static front door
-        </h1>
-        <p className="mb-8 max-w-md text-muted-foreground">
-          This landing page ships no auth call and no realtime connection — it's a
-          plain static page. The live app, with sign-in and synced data, lives
-          behind the link below.
-        </p>
-        <Link
-          to="/home"
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Enter the app
-        </Link>
-      </div>
-    </>
+      <StudyHeader onSignIn={() => openSignIn.current?.()} />
+      <main className="study-width study-landing">
+        <div className="study-intro">
+          <h1>Turn any topic into a <span className="study-gold">study game.</span></h1>
+          <p>Turn what you’re studying into a Jeopardy-style quiz and practice recalling the answers.</p>
+        </div>
+
+        <div className="study-landing-grid">
+          <section className="study-panel study-config" aria-labelledby="config-title">
+            <h2 id="config-title">Create your game.</h2>
+            <QuizForm signInRef={openSignIn} />
+          </section>
+
+          <section className="study-panel study-preview" aria-labelledby="sample-title">
+            <div className="study-preview-heading">
+              <h2 id="sample-title">Try a sample</h2>
+              <p>{sampleGame.topic} · {sampleQuestionCount} questions</p>
+            </div>
+            <GameBoard game={sampleGame} progress={{ assessments: {} }} />
+            <Link className="study-button study-secondary study-sample-link" to="/play">
+              Play Sample Game
+            </Link>
+          </section>
+        </div>
+        <p id="study-ai-note" className="study-hint study-ai-note">Uses your DeepSpace AI credits. Review AI-generated answers for accuracy.</p>
+      </main>
+    </div>
   )
 }

@@ -4,7 +4,7 @@ import { captureConsoleErrors } from './helpers/errors'
 /**
  * Smoke tests covering both page kinds this template ships:
  *   - '/'      → the static landing (top level of src/pages/): no providers,
- *                so no auth fetch and no records WebSocket on load.
+ *                with a session check and no records WebSocket on load.
  *   - '/home'  → a dynamic page (under src/pages/(app)/): the providers mount,
  *                the nav shell renders, and the records WebSocket connects.
  *
@@ -37,10 +37,11 @@ test.describe('Smoke tests', () => {
     expect(await page.locator('head link[rel="canonical"]').count()).toBe(1)
   })
 
-  test('static contract: landing fires no auth request, opens no websocket', async ({ page }) => {
+  test('landing checks the session without requesting a JWT or opening a records socket', async ({ page }) => {
     const offenders: string[] = []
     page.on('request', (req) => {
-      if (req.url().includes('/api/auth/')) offenders.push(req.url())
+      const path = new URL(req.url()).pathname
+      if (path.startsWith('/api/auth/') && path !== '/api/auth/get-session') offenders.push(path)
     })
     // Only the DO room route counts — vite's own HMR socket is a dev artifact.
     page.on('websocket', (ws) => {
