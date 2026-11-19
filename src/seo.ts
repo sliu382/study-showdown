@@ -23,7 +23,7 @@
 declare const __DEEPSPACE_SITE_ORIGIN__: string | undefined
 
 export const seo = {
-  title: 'StudyShowdown | Topic-based study games',
+  title: 'StudyShowdown',
   description: 'Turn any topic into a study game. Try the computer science sample board, reveal answers, and review the clues you missed.',
   /** Public origin for canonical URLs, og:url, and the sitemap — no trailing
    *  slash. Replace with the custom domain once one is attached, e.g.

@@ -12,9 +12,7 @@ import {
   apiWorkerFetch,
   authWorkerFetch,
   BROWSER_PROXY_ROUTES,
-  integrationPath,
   isPlatformReservedPath,
-  lookupOwn,
   platformWorkerFetch,
   resolveAppRole,
   resolveSessionReadAuth,
@@ -29,7 +27,6 @@ import {
   nativeAuthToken,
 } from 'deepspace/worker'
 import type { ExpoAuthBridgeOptions, JwtVerifierConfig, VerifyResult } from 'deepspace/worker'
-import { integrations } from '../integrations.js'
 import type { AppContext, Env } from '../../worker.js'
 
 function jwtConfig(env: Env): JwtVerifierConfig {
@@ -184,7 +181,7 @@ export function registerAuthAndIntegrationRoutes(app: Hono<AppContext>): void {
     return stub.fetch(c.req.raw)
   })
 
-  // Integrations proxy → api-worker.
+  // The API status page reads the catalog. Integration execution stays server-side.
   app.get('/api/integrations', async (c) => {
     try {
       const res = await apiWorkerFetch(c.env, '/api/integrations')
@@ -226,59 +223,6 @@ export function registerAuthAndIntegrationRoutes(app: Hono<AppContext>): void {
       return new Response(res.body, { status: res.status, headers: res.headers })
     } catch {
       return c.json({ error: 'Disconnect proxy failed' }, 502)
-    }
-  })
-
-  app.all('/api/integrations/:name/:endpoint', async (c) => {
-    const integrationName = c.req.param('name')
-    // Params arrive decoded, so `..%2F..%2Fapi%2Fusers` would otherwise
-    // reach another api-worker route with the owner's token. Plain
-    // identifiers only, and own keys only for the config.
-    const target = integrationPath(integrationName, c.req.param('endpoint'))
-    if (!target) return c.json({ error: 'Unknown integration' }, 404)
-    const config = lookupOwn(integrations, integrationName)
-    const billingMode = config?.billing ?? 'developer'
-
-    // Sign-in is required unless the app opts this integration into anonymous
-    // use; developer billing would otherwise let any visitor spend the owner's
-    // credits. User billing always needs a caller to bill.
-    const auth = await resolveAuth(c.req.raw, c.env)
-    if (!auth && (billingMode === 'user' || !config?.anonymous)) {
-      return c.json({ error: 'Sign in required for this integration' }, 401)
-    }
-
-    const headers: Record<string, string> = {
-      'Content-Type': c.req.header('Content-Type') ?? 'application/json',
-    }
-
-    // The api-worker bills the JWT subject: developer mode uses the app owner;
-    // user mode forwards the caller. There is no client billing override.
-    if (billingMode === 'developer') {
-      headers['Authorization'] = `Bearer ${c.env.APP_OWNER_JWT}`
-    } else {
-      const token = c.req.header('Authorization')?.slice(7)
-      if (token) headers['Authorization'] = `Bearer ${token}`
-    }
-
-    // Identify this app for per-app integrations. Pre-first-deploy there is no
-    // token, so omit both headers and let the api-worker fail closed.
-    if (c.env.APP_IDENTITY_TOKEN) {
-      headers['x-app-identity-token'] = c.env.APP_IDENTITY_TOKEN
-      headers['x-app-id'] = c.env.DEEPSPACE_APP_ID
-    }
-
-    const hasBody = c.req.method !== 'GET' && c.req.method !== 'HEAD'
-    const body = hasBody ? await c.req.text() : undefined
-
-    try {
-      const res = await apiWorkerFetch(c.env, target, {
-        method: c.req.method,
-        headers,
-        body,
-      })
-      return new Response(res.body, { status: res.status, headers: res.headers })
-    } catch {
-      return c.json({ error: 'Integration proxy failed' }, 502)
     }
   })
 }

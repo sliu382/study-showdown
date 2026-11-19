@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { AuthOverlay, signOut, useSession } from 'deepspace'
-import { BookOpen } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
 export function StudyHeader({ onSignIn }: { onSignIn?: () => void }) {
@@ -29,7 +28,7 @@ export function StudyHeader({ onSignIn }: { onSignIn?: () => void }) {
     <header className="study-header">
       <nav className="study-width study-nav" aria-label="StudyShowdown navigation">
         <Link to="/" className="study-brand">
-          <span className="study-brand-icon"><BookOpen size={21} aria-hidden="true" /></span>
+          <img className="study-brand-icon" src="/Updated-studyshowdown-icon-80.png" alt="" width={40} height={40} />
           <span>Study<span className="study-gold">Showdown</span></span>
         </Link>
         <div className="study-nav-actions">

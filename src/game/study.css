@@ -8,7 +8,7 @@
 .study-width { width: min(1200px, calc(100% - 3rem)); margin-inline: auto; }
 .study-header { border-bottom: 1px solid #273453; padding-block: 1.1rem; }
 .study-brand { display: inline-flex; align-items: center; gap: .7rem; font-size: 1.25rem; font-weight: 800; }
-.study-brand-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: .75rem; color: #ffcf66; background: #263458; }
+.study-brand-icon { flex: none; object-fit: contain; }
 .study-gold { color: #ffcf66; }
 .study-landing-shell { background: #090f22; }
 .study-landing,

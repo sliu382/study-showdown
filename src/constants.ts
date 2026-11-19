@@ -1,5 +1,5 @@
-/** App name — replaced by the CLI during scaffolding */
-export const APP_NAME = 'study-showdown-new'
+/** Display name for the scaffold navigation and page titles. */
+export const APP_NAME = 'StudyShowdown'
 
 /** Immutable app identity — data scope keys to this, so renames never
  *  strand your records.

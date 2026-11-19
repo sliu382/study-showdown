@@ -4,14 +4,19 @@ import type { AppContext, Env } from '../../worker'
 import { POINT_VALUES } from '../game/game'
 import { QUIZ_ENDPOINT } from '../game/generation'
 import { GAMES } from '../schemas/study-schema'
+import { createActionTools } from './action-routes'
+import { registerAuthAndIntegrationRoutes, registerStaticRoutes } from './http-routes'
 import { mockStudyRoom } from './study-room.fixture'
 import { registerStudyRoutes } from './study-routes'
 import { registerQuizRoutes } from './quiz-routes'
 
-vi.mock('./http-routes', () => ({
-  resolveAuth: async (request: Request) => request.headers.get('Authorization') === 'Bearer mock-session'
-    ? { userId: 'test-student', claims: { sub: 'test-student' } }
-    : null,
+vi.mock('deepspace/worker', async (importOriginal) => ({
+  ...await importOriginal<typeof import('deepspace/worker')>(),
+  verifyJwt: async (_config: unknown, token: string) => ({
+    result: token === 'mock-session'
+      ? { userId: 'test-student', claims: { sub: 'test-student' } }
+      : null,
+  }),
 }))
 
 const validRequest = { topic: 'Astronomy', categoryCount: 3 }
@@ -38,8 +43,10 @@ function setup(mockOutput: unknown = {
   const room = mockStudyRoom()
   const env = { ...room.env, API_WORKER: { fetch: mockProvider } } as unknown as Env
   const app = new Hono<AppContext>()
+  registerAuthAndIntegrationRoutes(app)
   registerQuizRoutes(app)
   registerStudyRoutes(app)
+  registerStaticRoutes(app)
   function post(body: string, authorized = true) {
     const headers = new Headers({ 'Content-Type': 'application/json' })
     if (authorized) headers.set('Authorization', 'Bearer mock-session')
@@ -50,8 +57,64 @@ function setup(mockOutput: unknown = {
       method: 'POST', headers: { Authorization: 'Bearer mock-session' }, body: JSON.stringify(ticket),
     }, env)
   }
-  return { mockProvider, post, retry, room }
+  return { app, env, mockProvider, post, retry, room }
 }
+
+describe('integration execution boundary', () => {
+  it.each([
+    ['unauthenticated OpenAI', '/api/integrations/openai/chat-completion', undefined],
+    ['invalid session', '/api/integrations/openai/chat-completion', 'Bearer invalid-session'],
+    ['unconfigured integration', '/api/integrations/unconfigured/example', 'Bearer mock-session'],
+    ['server-action provider', '/api/integrations/google/example', 'Bearer mock-session'],
+  ])('rejects a browser request for %s before the upstream', async (_description, path, authorization) => {
+    const { app, env, mockProvider } = setup()
+    const response = await app.request(path, {
+      method: 'POST',
+      headers: authorization ? { Authorization: authorization } : undefined,
+      body: '{}',
+    }, env)
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'not_found' })
+    expect(mockProvider).not.toHaveBeenCalled()
+  })
+
+  it('keeps browser callers on the validated, caller-billed quiz route', async () => {
+    const { app, env, mockProvider, post } = setup()
+    expect((await post(JSON.stringify({ ...validRequest, topic: '' }))).status).toBe(400)
+    expect(mockProvider).not.toHaveBeenCalled()
+    expect((await post(JSON.stringify(validRequest))).status).toBe(200)
+    expect((await post(JSON.stringify(validRequest))).status).toBe(429)
+
+    const bypass = await app.request('/api/integrations/openai/chat-completion', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer mock-session', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validRequest, topic: '' }),
+    }, env)
+    expect(bypass.status).toBe(404)
+    expect(mockProvider).toHaveBeenCalledOnce()
+    expect(new Headers(mockProvider.mock.calls[0][1].headers).get('X-Auth-Token')).toBe('mock-session')
+  })
+
+  it('keeps the integration catalog accessible without owner credentials', async () => {
+    const { app, env, mockProvider } = setup()
+    const response = await app.request('/api/integrations', {}, env)
+    expect(response.status).toBe(200)
+    expect(mockProvider).toHaveBeenCalledOnce()
+    const [url, options] = mockProvider.mock.calls[0]
+    expect(new URL(url).pathname).toBe('/api/integrations')
+    expect(new Headers(options?.headers).has('Authorization')).toBe(false)
+  })
+
+  it('rejects unconfigured server-action integrations before forwarding', async () => {
+    const { env, mockProvider } = setup()
+    const tools = createActionTools(env, 'test-student', 'mock-session')
+    expect(await tools.integration('openai/chat-completion')).toMatchObject({
+      success: false, code: 'integration_not_configured',
+    })
+    expect(mockProvider).not.toHaveBeenCalled()
+  })
+})
 
 describe('quiz endpoint with mocked auth and DeepSpace proxy', () => {
   it('uses caller billing and requests structured output through the installed AI SDK', async () => {

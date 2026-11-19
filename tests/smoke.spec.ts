@@ -32,9 +32,30 @@ test.describe('Smoke tests', () => {
     // canonical, because React 19 would not dedupe against them on mount.
     await page.goto('/')
     await expect(page.getByTestId('static-landing')).toBeVisible()
-    await expect(page).toHaveTitle(/\S/)
+    await expect(page).toHaveTitle('StudyShowdown')
     expect(await page.locator('head meta[name="description"]').count()).toBe(1)
     expect(await page.locator('head link[rel="canonical"]').count()).toBe(1)
+  })
+
+  test('loads the StudyShowdown tab and navigation icons', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 })
+    await page.goto('/play')
+
+    const favicon = page.locator('head link[rel="icon"]')
+    await expect(favicon).toHaveAttribute('href', '/Updated-studyshowdown-icon-32.png')
+    const faviconResponse = await page.request.get('/Updated-studyshowdown-icon-32.png')
+    expect(faviconResponse.ok()).toBe(true)
+    expect(faviconResponse.headers()['content-type']).toContain('image/png')
+
+    const homeLink = page.getByRole('link', { name: 'StudyShowdown', exact: true })
+    const icon = homeLink.locator('img')
+    await expect(icon).toHaveAttribute('src', '/Updated-studyshowdown-icon-80.png')
+    await expect(icon).toBeVisible()
+    await expect(icon).toHaveJSProperty('naturalWidth', 80)
+    await expect(icon).toHaveCSS('width', '40px')
+    await expect(icon).toHaveCSS('height', '40px')
+    await icon.click()
+    await expect(page.getByTestId('static-landing')).toBeVisible()
   })
 
   test('landing checks the session without requesting a JWT or opening a records socket', async ({ page }) => {
@@ -56,6 +77,9 @@ test.describe('Smoke tests', () => {
   test('dynamic app boundary mounts on /home', async ({ page }) => {
     await page.goto('/home')
     await expect(page.getByTestId('app-navigation')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'StudyShowdown' })).toBeVisible()
+    await page.getByRole('link', { name: 'Create a study game' }).click()
+    await expect(page.getByTestId('static-landing')).toBeVisible()
   })
 
   test('sign-in button visible when logged out', async ({ page }) => {

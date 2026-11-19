@@ -104,20 +104,20 @@ export function createActionTools(env: Env, userId: string, callerJwt: string): 
       }
     }
     const integrationName = target.name
-    const billingMode = lookupOwn(integrations, integrationName)?.billing ?? 'developer'
+    const config = lookupOwn(integrations, integrationName)
+    if (!config) {
+      return { success: false, code: 'integration_not_configured', error: 'Integration is not configured.' }
+    }
 
     // The api-worker bills the JWT subject: owner for developer mode, caller
     // for user mode. It does not accept a client-supplied billing override.
-    const jwt = billingMode === 'developer' ? env.APP_OWNER_JWT : callerJwt
+    const jwt = config.billing === 'developer' ? env.APP_OWNER_JWT : callerJwt
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${jwt}`,
     }
 
-    // Composio files connections per app, so identify this app as the
-    // /api/integrations proxy does; otherwise an action looks for the user's
-    // connection in a different namespace. Pre-first-deploy there is no token:
-    // omit both and let the api-worker fail closed.
+    // Composio files connections per app, so include the app identity.
     if (integrationName === 'composio' && env.APP_IDENTITY_TOKEN) {
       headers['x-app-identity-token'] = env.APP_IDENTITY_TOKEN
       headers['x-app-id'] = env.DEEPSPACE_APP_ID

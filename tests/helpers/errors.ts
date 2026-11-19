@@ -11,7 +11,6 @@ export function captureConsoleErrors(page: Page): string[] {
       const text = msg.text()
       // Ignore known noise
       if (text.includes('__chromium_devtools_metrics_reporter')) return
-      if (text.includes('favicon.ico')) return
       errors.push(text)
     }
   })
