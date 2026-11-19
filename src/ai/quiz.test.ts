@@ -19,6 +19,7 @@ function fixture() {
         points,
         prompt: `What is a ${title} concept at level ${points}?`,
         answer: 'An example answer.',
+        acceptedAnswers: ['example answer'],
         explanation: 'An example explanation.',
       })),
     })),
@@ -34,9 +35,27 @@ describe('validateGeneratedBoard with mock model output', () => {
     })
     expect(game.categories.map((category) => category.title)).toEqual(['Stars', 'Moons', 'Planets', 'Orbits', 'Galaxies', 'Comets'])
     expect(game.categories[1].questions.map((question) => question.points)).toEqual(POINT_VALUES)
+    expect(questions[0].acceptedAnswers).toEqual(['example answer'])
     expect(new Set(questions.map((question) => question.id)).size).toBe(18)
     expect(game.createdAt).toBe(new Date(game.createdAt!).toISOString())
     expect(questions.every((question) => question.createdAt === game.createdAt)).toBe(true)
+  })
+
+  it('normalizes new question content before returning a board for storage', () => {
+    const board = fixture()
+    Object.assign(board.categories[0].questions[0], {
+      prompt: String.raw`What expression is **equivalent** to \(x^{2}\)?`,
+      answer: '*x squared*',
+      explanation: String.raw`Both \(x^{2}\) and **x squared** describe the same power.`,
+      acceptedAnswers: ['**x squared**', '`x^2`'],
+    })
+    const game = validateGeneratedBoard(board, request)
+    expect(game.categories[0].questions[2]).toMatchObject({
+      prompt: 'What expression is equivalent to x²?',
+      answer: 'x squared',
+      explanation: 'Both x² and x squared describe the same power.',
+      acceptedAnswers: ['x squared', 'x^2'],
+    })
   })
 
   it.each([
@@ -61,8 +80,33 @@ describe('validateGeneratedBoard with mock model output', () => {
       board.categories[0].questions[0].answer = '  '
       return board
     }],
+    ['missing accepted answers', (board) => ({
+      categories: [{ ...board.categories[0], questions: [
+        { points: 300, prompt: 'A prompt', answer: 'An answer', explanation: 'An explanation' }, ...board.categories[0].questions.slice(1),
+      ] }, ...board.categories.slice(1)],
+    })],
+    ['an empty accepted answer list', (board) => {
+      board.categories[0].questions[0].acceptedAnswers = []
+      return board
+    }],
+    ['a blank accepted answer', (board) => {
+      board.categories[0].questions[0].acceptedAnswers = ['  ']
+      return board
+    }],
+    ['an overly long accepted answer', (board) => {
+      board.categories[0].questions[0].acceptedAnswers = ['x'.repeat(101)]
+      return board
+    }],
     ['an overly long explanation', (board) => {
       board.categories[0].questions[0].explanation = 'x'.repeat(361)
+      return board
+    }],
+    ['unsupported LaTeX', (board) => {
+      board.categories[0].questions[0].explanation = String.raw`Use \(\frac{1}{2}\) here.`
+      return board
+    }],
+    ['a duplicate prompt disguised by Markdown', (board) => {
+      board.categories[2].questions[0].prompt = `**${board.categories[0].questions[0].prompt}**`
       return board
     }],
     ['duplicate categories', (board) => {

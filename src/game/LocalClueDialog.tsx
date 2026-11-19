@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui/Dialog'
+import { gradeAnswer } from './answer-grading'
 import type { LocalClue, LocalOutcome } from './round'
 
 export function LocalClueDialog({ clue, players, heading, onAttempt, onClose }: {
@@ -10,22 +11,13 @@ export function LocalClueDialog({ clue, players, heading, onAttempt, onClose }: 
   onAttempt: (clue: LocalClue, outcome: LocalOutcome) => void
   onClose: (clue: LocalClue) => void
 }) {
-  const [hostCheck, setHostCheck] = useState<LocalClue | null>(null)
   const status = useRef<HTMLParagraphElement>(null)
-  const correctButton = useRef<HTMLButtonElement>(null)
-  const checking = clue !== null && hostCheck === clue
+  const resolved = clue?.phase === 'resolved'
 
   useEffect(() => {
-    if (checking) correctButton.current?.focus()
-    else if (clue) status.current?.focus()
-  }, [checking, clue])
+    if (resolved) status.current?.focus()
+  }, [resolved])
 
-  function grade(clue: LocalClue, outcome: LocalOutcome) {
-    setHostCheck((current) => current === clue ? null : current)
-    onAttempt(clue, outcome)
-  }
-
-  const resolved = clue?.phase === 'resolved'
   const announcement = clue && (resolved ? (
     clue.winner === null ? 'No one earned points.'
       : clue.winner === clue.originalPlayer ? `${players[clue.winner].name} earned ${clue.question.points} points!`
@@ -35,10 +27,7 @@ export function LocalClueDialog({ clue, players, heading, onAttempt, onClose }: 
 
   return (
     <Dialog open={clue !== null} onOpenChange={(open) => {
-      if (!open && clue && clue.phase !== 'stealing') {
-        setHostCheck(null)
-        onClose(clue)
-      }
+      if (!open && clue && clue.phase !== 'stealing') onClose(clue)
     }}>
       <DialogContent className="study-question" finalFocus={heading} hideClose={clue?.phase === 'stealing'}>
         {clue && (
@@ -46,33 +35,52 @@ export function LocalClueDialog({ clue, players, heading, onAttempt, onClose }: 
             <DialogDescription>{clue.category} · {clue.question.points} points</DialogDescription>
             <DialogTitle>{clue.question.prompt}</DialogTitle>
             <p className="study-turn" tabIndex={-1} ref={status} role="status">{announcement}</p>
-            {(resolved || checking) && (
-              <div className="study-answer">
-                <strong>{resolved ? 'Answer' : 'Host only · Players look away'}</strong>
-                <p>{clue.question.answer}</p>
-                {clue.question.explanation && <p>{clue.question.explanation}</p>}
-              </div>
-            )}
             {resolved ? (
-              <button type="button" className="study-button study-primary" onClick={() => onClose(clue)}>Continue</button>
-            ) : checking ? (
-              <div className="study-actions">
-                <button ref={correctButton} type="button" className="study-button study-primary" onClick={() => grade(clue, 'correct')}>Correct</button>
-                <button type="button" className="study-button study-secondary" onClick={() => grade(clue, 'incorrect')}>Incorrect</button>
-                <button type="button" className="study-button study-secondary" onClick={() => setHostCheck(null)}>Hide Answer</button>
-              </div>
-            ) : (
               <>
-                <p className="study-hint">Answer aloud or pass. When grading, only the host should look at the screen.</p>
-                <div className="study-actions">
-                  <button type="button" className="study-button study-primary" onClick={() => setHostCheck(clue)}>Check Answer Privately</button>
-                  <button type="button" className="study-button study-secondary" onClick={() => grade(clue, 'pass')}>Pass</button>
+                <div className="study-answer">
+                  <strong>Answer</strong>
+                  <p>{clue.question.answer}</p>
+                  {clue.question.explanation && <p>{clue.question.explanation}</p>}
                 </div>
+                <button type="button" className="study-button study-primary" onClick={() => onClose(clue)}>Continue</button>
               </>
-            )}
+            ) : <TypedAnswerForm key={clue.answeringPlayer} clue={clue} onAttempt={onAttempt} />}
           </>
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function TypedAnswerForm({ clue, onAttempt }: {
+  clue: LocalClue
+  onAttempt: (clue: LocalClue, outcome: LocalOutcome) => void
+}) {
+  const [answer, setAnswer] = useState('')
+  const input = useRef<HTMLInputElement>(null)
+  const incorrect = clue.phase === 'stealing' && clue.previousOutcome === 'incorrect'
+
+  useEffect(() => {
+    input.current?.focus()
+  }, [])
+
+  return (
+    <form className="study-form study-typed-answer" onSubmit={(event) => {
+      event.preventDefault()
+      if (!answer.trim()) return
+      onAttempt(clue, gradeAnswer(clue.question, answer) ? 'correct' : 'incorrect')
+    }}>
+      {incorrect && <p id="study-last-grade" className="study-error">Incorrect answer. The clue is still open.</p>}
+      <div>
+        <label htmlFor="study-typed-answer">Your answer</label>
+        <input ref={input} id="study-typed-answer" value={answer} onChange={(event) => setAnswer(event.target.value)}
+          autoComplete="off" spellCheck={false} maxLength={240}
+          aria-describedby={incorrect ? 'study-last-grade' : undefined} />
+      </div>
+      <div className="study-actions">
+        <button type="submit" className="study-button study-primary" disabled={!answer.trim()}>Submit Answer</button>
+        <button type="button" className="study-button study-secondary" onClick={() => onAttempt(clue, 'pass')}>Pass</button>
+      </div>
+    </form>
   )
 }

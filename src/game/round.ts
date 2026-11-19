@@ -22,7 +22,8 @@ export type LocalClue = {
   answeringPlayer: number
   attemptedPlayers: readonly number[]
 } & (
-  | { phase: 'answering' | 'stealing' }
+  | { phase: 'answering' }
+  | { phase: 'stealing'; previousOutcome: 'incorrect' | 'pass' }
   | { phase: 'resolved'; winner: number | null }
 )
 
@@ -85,7 +86,7 @@ export function submitLocalAttempt(round: LocalRound, clue: LocalClue, outcome: 
   if (outcome !== 'correct' && attemptedPlayers.length < players.length) {
     return {
       ...round, players,
-      clue: { ...clue, phase: 'stealing', attemptedPlayers, answeringPlayer: (answeringPlayer + 1) % players.length },
+      clue: { ...clue, phase: 'stealing', previousOutcome: outcome, attemptedPlayers, answeringPlayer: (answeringPlayer + 1) % players.length },
     }
   }
 

@@ -187,3 +187,7 @@ button.study-tile:not(:disabled):hover { background: #3860e2; }
 .study-rankings h3, .study-player-review summary { overflow-wrap: anywhere; }
 .study-player-review { padding-block: .75rem; border-bottom: 1px solid #334569; }
 .study-player-review summary { color: #ffcf66; cursor: pointer; }
+
+.study-typed-answer { gap: .75rem; }
+.study-typed-answer .study-error { margin-top: 0; }
+.study-typed-answer button:disabled { cursor: not-allowed; }

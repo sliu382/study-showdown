@@ -3,6 +3,7 @@ import { createDeepSpaceAI } from 'deepspace/worker'
 import { z } from 'zod/v4'
 import type { Env } from '../../worker'
 import { LEARNING_LEVEL_LABELS, POINT_VALUES } from '../game/game'
+import { hasUnsupportedQuestionFormatting, normalizeQuestionFormatting } from '../game/question-text'
 import type { SavedGame } from '../game/history'
 import { CATEGORY_MAX_LENGTH, MAX_CATEGORIES, MIN_CATEGORIES, type QuizRequest } from '../game/generation'
 
@@ -16,7 +17,11 @@ const quizInstructions = [
   'Use each non-null custom category as the exact category title at that position. Choose distinct, relevant subtopics for null slots or when no custom categories are supplied.',
   `Tailor terminology, complexity, assumed prerequisites, and explanations to the requested learningLevel: ${Object.entries(LEARNING_LEVEL_LABELS).map(([level, label]) => `${level} = ${label}`).join('; ')}. For general knowledge, assume no specialized coursework.`,
   'Increase difficulty within that same learning level: use 100 points for introductory recall, 200 for understanding, and 300 for application or deeper recall. Keep even the hardest clue appropriate for the selected audience.',
-  'Use short, standalone prompts, clear answers, and concise explanations that help students understand the answer. Avoid repeated prompts or categories.',
+  'Prefer short, standalone questions with one concise, unambiguous answer that a student can type. Put the rationale in explanation and avoid repeated prompts or categories.',
+  'Include the concise correct answer in acceptedAnswers, plus common equivalent terms, spellings, or abbreviations when useful. Each entry must be a complete correct answer on its own. Exclude distractors, partial answers, and related concepts.',
+  'Prefer answers that can be matched by spelling and punctuation. Avoid questions where letter case alone distinguishes correct from incorrect answers.',
+  'Write prompt, answer, explanation, and acceptedAnswers as plain presentation-ready text. Do not use Markdown emphasis, backticks, headings, HTML, LaTeX, or notation that needs a renderer.',
+  'Use quotation marks or capitalization for titles and emphasis. For formulas, prefer readable text such as x² or x squared, and H₂O or H2O. Keep meaningful punctuation in programming terms and include common plain-text answer variants for formulas.',
 ].join(' ')
 
 const quizOutputSchema = z.strictObject({
@@ -26,6 +31,7 @@ const quizOutputSchema = z.strictObject({
       points: z.literal(POINT_VALUES),
       prompt: z.string().trim().min(1).max(320),
       answer: z.string().trim().min(1).max(240),
+      acceptedAnswers: z.array(z.string().trim().min(1).max(100)).min(1).max(6),
       explanation: z.string().trim().min(1).max(360),
     })).length(POINT_VALUES.length),
   })).min(MIN_CATEGORIES).max(MAX_CATEGORIES),
@@ -61,7 +67,11 @@ export function validateGeneratedBoard(output: unknown, request: QuizRequest): S
     const points = new Set(category.questions.map((question) => question.points))
     if (points.size !== POINT_VALUES.length) throw new InvalidQuizError()
 
-    const questions = category.questions.map((question) => {
+    const questions = category.questions.map((rawQuestion) => {
+      const question = normalizeQuestionFormatting(rawQuestion)
+      const fields = [question.prompt, question.answer, question.explanation ?? '', ...(question.acceptedAnswers ?? [])]
+      if (fields.some((text) => !text.trim() || hasUnsupportedQuestionFormatting(text))) throw new InvalidQuizError()
+
       const key = normalizedQuestion(question.prompt)
       if (prompts.has(key)) throw new InvalidQuizError()
       prompts.add(key)
@@ -96,7 +106,7 @@ export async function generateQuiz(
     prompt: JSON.stringify(request),
     output: Output.object({ schema: quizOutputSchema, name: 'study_quiz' }),
     providerOptions: { openai: { reasoningEffort: 'low' } },
-    maxOutputTokens: 4600,
+    maxOutputTokens: 5200,
     maxRetries: 0,
     abortSignal,
   })

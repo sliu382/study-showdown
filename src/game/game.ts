@@ -19,6 +19,7 @@ export interface Question {
   points: PointValue
   prompt: string
   answer: string
+  acceptedAnswers?: readonly string[]
   explanation?: string
   createdAt?: string
 }

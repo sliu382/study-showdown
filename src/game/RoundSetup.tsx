@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Game } from './game'
+import { canGradeQuestion } from './answer-grading'
 import { defaultPlayerName, LOCAL_PLAYER_COUNTS, type LocalPlayerCount, type RoundConfig } from './round'
 import { StudyScreen } from './StudyAccess'
 
@@ -8,6 +9,7 @@ export function RoundSetup({ game, onStart }: { game: Game; onStart: (config: Ro
   const [playerCount, setPlayerCount] = useState<LocalPlayerCount>(2)
   const [names, setNames] = useState(['', '', '', ''])
   const soloOption = useRef<HTMLInputElement>(null)
+  const multiplayerAvailable = game.categories.every((category) => category.questions.every(canGradeQuestion))
 
   useEffect(() => {
     soloOption.current?.focus()
@@ -17,7 +19,7 @@ export function RoundSetup({ game, onStart }: { game: Game; onStart: (config: Ro
     <StudyScreen title="Set up your game">
       <form className="study-panel study-form study-round-setup" onSubmit={(event) => {
         event.preventDefault()
-        onStart(mode === 'solo' ? { mode } : { mode, playerCount, names })
+        onStart(mode === 'solo' || !multiplayerAvailable ? { mode: 'solo' } : { mode, playerCount, names })
       }}>
         <h2>{game.topic}</h2>
         <fieldset className="study-mode-picker">
@@ -27,10 +29,16 @@ export function RoundSetup({ game, onStart }: { game: Game; onStart: (config: Ro
             Solo Study
           </label>
           <label>
-            <input type="radio" name="mode" value="local" checked={mode === 'local'} onChange={() => setMode('local')} />
+            <input type="radio" name="mode" value="local" checked={mode === 'local'} disabled={!multiplayerAvailable}
+              aria-describedby={multiplayerAvailable ? undefined : 'study-multiplayer-unavailable'} onChange={() => setMode('local')} />
             Local Multiplayer
           </label>
         </fieldset>
+        {!multiplayerAvailable && (
+          <p id="study-multiplayer-unavailable" className="study-hint">
+            This older board is available in Solo Study. Some clues lack short answers that multiplayer can check reliably.
+          </p>
+        )}
         {mode === 'local' && (
           <>
             <div>
@@ -55,7 +63,9 @@ export function RoundSetup({ game, onStart }: { game: Game; onStart: (config: Ro
                 )
               })}
             </fieldset>
-            <p className="study-hint">Choose a host who isn’t playing. Players answer aloud and look away while the host checks the answer. Passes don’t affect accuracy. Multiplayer scores aren’t saved to study history.</p>
+            <p className="study-hint">Type your answer to earn points. If you answer incorrectly or pass, another player can steal.
+              Answers are automatically checked against accepted variations and may reject equivalent wording.
+              Passes don’t affect accuracy. Multiplayer scores aren’t saved to study history.</p>
           </>
         )}
         <button type="submit" className="study-button study-primary">Start Game</button>

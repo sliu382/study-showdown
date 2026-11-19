@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../components/ui/Dialog'
 import { GameBoard } from '../game/GameBoard'
 import { LEARNING_LEVEL_LABELS, summarizeGame } from '../game/game'
 import type { Assessment, Game, Question } from '../game/game'
+import { normalizeQuestionFormatting } from '../game/question-text'
 import { sampleGame } from '../game/sample'
 import { StudyHeader } from '../game/StudyHeader'
 import { StudyAccess, StudyScreen } from '../game/StudyAccess'
@@ -30,7 +31,15 @@ export default function Play() {
 
 function SavedRound({ gameId }: { gameId: string }) {
   const { data, error, retry } = useStudyRecord<{ game: SavedGame }>(`/games/${encodeURIComponent(gameId)}`)
-  if (data) return <GameSession game={data.game} />
+  const savedGame = data?.game
+  // Older boards get the same presentation cleanup without rewriting saved records.
+  const game = useMemo(() => savedGame && ({
+    ...savedGame,
+    categories: savedGame.categories.map((category) => ({
+      ...category, questions: category.questions.map(normalizeQuestionFormatting),
+    })),
+  }), [savedGame])
+  if (game) return <GameSession game={game} />
   return (
     <StudyScreen title="Saved game">
       {error ? (
